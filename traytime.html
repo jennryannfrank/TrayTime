@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TrayTime — Build a Reimbursable Meal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fafaf7;
+    --paper-deep: #eef0ec;
+    --ink: #2a2f2c;
+    --ink-soft: #4d544f;
+    --ink-faint: #8a928d;
+    --rule: #d4d8d3;
+    --tray: #eef4ec;
+
+    --brand: #2d5e3e;
+    --brand-deep: #244c33;
+    --brand-soft: #3a7a51;
+
+    --done: #c9e3cb;
+    --done-edge: #9ec9a3;
+    --present: #f5e6a8;
+    --present-edge: #d9c674;
+    --absent: #f5d4d1;
+    --absent-edge: #d9a8a4;
+    --hot: #b8442e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--paper);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(45,94,62,0.06) 0%, transparent 60%);
+    color: var(--ink);
+    font-family: 'Fraunces', Georgia, serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 0.75rem 1rem;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .masthead {
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 0.5rem;
+    border: 1.5px solid var(--brand);
+    background: #fff;
+    box-shadow: 4px 4px 0 var(--brand);
+    padding: 0.55rem 0.85rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ticket-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed var(--rule);
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.35rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .prod-badge {
+    background: var(--hot);
+    color: #fff;
+    padding: 0.15rem 0.45rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    border-radius: 2px;
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.1rem;
+  }
+
+  .title {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 2.2rem;
+    letter-spacing: -0.035em;
+    font-style: italic;
+    color: var(--brand);
+    line-height: 0.9;
+  }
+  .title .accent { color: var(--brand-soft); }
+
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: right;
+    line-height: 1.5;
+  }
+  .meta strong { color: var(--ink); font-weight: 700; }
+
+  /* HUD */
+  .hud {
+    width: 100%;
+    max-width: 720px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    background: var(--tray);
+    border: 1px solid var(--done-edge);
+  }
+
+  .hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    border-right: 1px dashed var(--done-edge);
+  }
+  .hud-item:last-child { border-right: none; }
+
+  .hud-num {
+    font-family: 'Fraunces', serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--brand);
+    line-height: 1;
+  }
+
+  .hud-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* CANVAS */
+  .stage {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    aspect-ratio: 720 / 520;
+    background: #fff;
+    border: 1.5px solid var(--brand);
+    box-shadow: 4px 4px 0 var(--brand);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* OVERLAYS */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    text-align: center;
+    z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+
+  .overlay h2 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 900;
+    font-size: 2rem;
+    color: var(--brand);
+    margin-bottom: 0.3rem;
+    letter-spacing: -0.02em;
+  }
+
+  .overlay h2.lose { color: var(--hot); }
+
+  .overlay .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 1rem;
+  }
+
+  .overlay p {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    margin-bottom: 1rem;
+    max-width: 440px;
+    line-height: 1.5;
+  }
+
+  .controls-help {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0.4rem 1rem;
+    margin-bottom: 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+  }
+
+  .key-tag {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    background: var(--paper-deep);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .play-btn {
+    background: var(--brand);
+    color: #fff;
+    border: none;
+    padding: 0.85rem 1.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--brand-deep);
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .play-btn:hover { background: var(--brand-deep); }
+  .play-btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--brand-deep);
+  }
+
+  .controls-bar {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    justify-content: center;
+    gap: 1.2rem;
+    margin-bottom: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    flex-wrap: wrap;
+  }
+  .controls-bar kbd {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    background: #fff;
+    border: 1px solid var(--brand);
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--brand);
+    margin-right: 0.25rem;
+    box-shadow: 1px 1px 0 var(--brand);
+  }
+  @media (max-width: 540px) {
+    .controls-bar { font-size: 0.55rem; gap: 0.7rem; }
+  }
+
+  /* MOBILE TOUCH PAD */
+  .touchpad {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 0.6rem;
+    display: none;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.4rem;
+  }
+
+  .touchpad button {
+    height: 3.5rem;
+    border: 1.5px solid var(--brand);
+    background: #fff;
+    color: var(--brand);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--brand);
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .touchpad button:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--brand);
+  }
+
+  @media (max-width: 768px) {
+    .touchpad { display: grid; }
+    .title { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="ticket-bar">
+    <div>Cafeteria · Lunch Line · NSLP K-5</div>
+    <div><span class="prod-badge">PRODUCTION</span></div>
+  </div>
+  <div>
+    <div class="eyebrow">Build a Reimbursable Meal</div>
+    <h1 class="title">Tray<span class="accent">Time</span></h1>
+  </div>
+  <div class="meta">
+    <div><strong>5</strong> components</div>
+    <div><strong>1</strong> tray</div>
+    <div id="date-line">—</div>
+  </div>
+</header>
+
+<div class="hud">
+  <div class="hud-item"><span class="hud-num" id="hud-score">0</span><span class="hud-label">Score</span></div>
+  <div class="hud-item"><span class="hud-num" id="hud-lives">3</span><span class="hud-label">Lives</span></div>
+  <div class="hud-item"><span class="hud-num" id="hud-pepper">5</span><span class="hud-label">Pepper</span></div>
+  <div class="hud-item"><span class="hud-num" id="hud-level">1</span><span class="hud-label">Level</span></div>
+</div>
+
+<div class="controls-bar">
+  <span><kbd>←→↑↓</kbd> Move</span>
+  <span><kbd>Space</kbd> or <kbd>E</kbd> Pepper</span>
+  <span><kbd>P</kbd> Pause</span>
+</div>
+
+<div class="stage">
+  <canvas id="game" width="720" height="520"></canvas>
+
+  <div class="overlay" id="start-overlay">
+    <h2>TrayTime</h2>
+    <div class="sub">Build a Reimbursable Meal</div>
+    <p>Walk across each meal component to knock it down. Get all five — Meat/Meat Alt, Grain, Fruit, Vegetable, Milk — onto the tray to complete a reimbursable lunch. Watch out for junk food trying to spoil the meal.</p>
+    <div class="controls-help">
+      <div><span class="key-tag">←→</span> Move</div>
+      <div><span class="key-tag">↑↓</span> Climb ladders</div>
+      <div><span class="key-tag">Space</span> or <span class="key-tag">E</span> Shake pepper</div>
+      <div><span class="key-tag">P</span> Pause</div>
+    </div>
+    <button class="play-btn" id="start-btn">Start Service →</button>
+  </div>
+
+  <div class="overlay hidden" id="win-overlay">
+    <h2 id="win-title">Reimbursable!</h2>
+    <div class="sub" id="win-sub">Meal pattern met</div>
+    <p id="win-msg">All five components on the tray. That's a compliant meal.</p>
+    <button class="play-btn" id="next-btn">Next Service →</button>
+  </div>
+
+  <div class="overlay hidden" id="lose-overlay">
+    <h2 class="lose">Service ended.</h2>
+    <div class="sub">Try again — the kids are still hungry</div>
+    <p id="lose-msg">—</p>
+    <button class="play-btn" id="retry-btn">Reopen Line →</button>
+  </div>
+
+  <div class="overlay hidden" id="pause-overlay">
+    <h2>Paused</h2>
+    <div class="sub">Press P to resume</div>
+  </div>
+</div>
+
+<div class="touchpad" id="touchpad">
+  <button data-touch="left">←</button>
+  <button data-touch="up">↑</button>
+  <button data-touch="right">→</button>
+  <button data-touch="pepper">PEPPER</button>
+  <button data-touch="down">↓</button>
+  <button data-touch="pause">PAUSE</button>
+</div>
+
+<script>
+// ============================================================
+// TrayTime — A BurgerTime-style game where you build a
+// reimbursable NSLP K-5 lunch
+// ============================================================
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+
+// ---------- CONFIG ----------
+const PLATFORM_Y = [120, 240, 360];   // 3 platforms
+const TRAY_Y = 470;                    // tray catch zone
+const PLAT_THICK = 8;
+const LADDER_W = 28;
+
+// Ladder x-positions per platform pair. Index 0 is between platform 0 and 1, etc.
+const LADDERS = [
+  // top to middle
+  { x: 200, top: 0, bottom: 1 },
+  { x: 520, top: 0, bottom: 1 },
+  // middle to bottom
+  { x: 120, top: 1, bottom: 2 },
+  { x: 360, top: 1, bottom: 2 },
+  { x: 600, top: 1, bottom: 2 },
+  // bottom to tray (we treat tray as a virtual "platform 3")
+  { x: 80,  top: 2, bottom: 3 },
+  { x: 280, top: 2, bottom: 3 },
+  { x: 460, top: 2, bottom: 3 },
+  { x: 640, top: 2, bottom: 3 }
+];
+
+const COMPONENT_TYPES = [
+  { key: "MMA",   label: "M/MA",  color: "#d9a8a4", edge: "#b8442e", text: "#fff", emoji: "🍗" },
+  { key: "GRAIN", label: "Grain", color: "#e8d6a8", edge: "#a98a4a", text: "#3a2e15", emoji: "🌾" },
+  { key: "FRUIT", label: "Fruit", color: "#f5b8a8", edge: "#c46e54", text: "#fff", emoji: "🍎" },
+  { key: "VEG",   label: "Veg",   color: "#c9e3cb", edge: "#5a8c5e", text: "#1f3a22", emoji: "🥦" },
+  { key: "MILK",  label: "Milk",  color: "#e8eef5", edge: "#7a8a9a", text: "#2a3a4a", emoji: "🥛" }
+];
+
+// Component stacks placed on platforms. Each stack has 3 segments
+// the player walks across to knock it down.
+const COMPONENT_LAYOUT = [
+  // {type, platform, x (center), segments}
+  { type: "MMA",   platform: 0, x: 100, segments: 3 },
+  { type: "GRAIN", platform: 0, x: 360, segments: 3 },
+  { type: "FRUIT", platform: 0, x: 620, segments: 3 },
+  { type: "VEG",   platform: 1, x: 220, segments: 3 },
+  { type: "MILK",  platform: 1, x: 500, segments: 3 }
+];
+
+const PLAYER_SPEED = 2.0;
+const PLAYER_W = 22, PLAYER_H = 32;
+const ENEMY_SPEED = 1.6;
+const ENEMY_W = 22, ENEMY_H = 26;
+const STUN_FRAMES = 180;       // ~3 seconds at 60fps
+const SHAKE_DURATION = 28;     // pepper cloud lasts ~0.5s
+const FALL_SPEED = 4.5;
+const SEGMENT_W = 30;          // spacing between food sprite segments
+
+// ---------- STATE ----------
+let state = {
+  running: false,
+  paused: false,
+  score: 0,
+  lives: 3,
+  pepper: 5,
+  level: 1,
+  player: null,
+  enemies: [],
+  components: [],   // each is a stack of segments
+  pepperCloud: null,
+  fallingPieces: [],
+  trayCatches: [],   // visual log of components that landed
+  message: null,
+  messageTimer: 0,
+  invuln: 0
+};
+
+const keys = {};
+
+// ---------- HELPERS ----------
+function platformY(idx) {
+  if (idx === 3) return TRAY_Y;
+  return PLATFORM_Y[idx];
+}
+
+function entityFeet(e) {
+  return e.y + e.h / 2;
+}
+
+function isOnPlatform(e) {
+  for (let i = 0; i < PLATFORM_Y.length; i++) {
+    if (Math.abs(entityFeet(e) - PLATFORM_Y[i]) < 4) return i;
+  }
+  return -1;
+}
+
+function nearLadder(e) {
+  for (const lad of LADDERS) {
+    if (Math.abs(e.x - lad.x) < LADDER_W / 2 + 2) {
+      // entity must be near top or bottom of this ladder, OR currently on ladder
+      const topY = platformY(lad.top);
+      const botY = platformY(lad.bottom);
+      const feet = entityFeet(e);
+      if (feet >= topY - 4 && feet <= botY + 4) return lad;
+    }
+  }
+  return null;
+}
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+// ---------- INIT LEVEL ----------
+function initLevel() {
+  // player at bottom-left of platform 2
+  state.player = {
+    x: 60, y: PLATFORM_Y[2] - PLAYER_H / 2,
+    w: PLAYER_W, h: PLAYER_H,
+    onLadder: null,
+    facing: 1,
+    walkPhase: 0
+  };
+
+  // Spawn enemies based on level. Each enemy gets a distinct behavior and
+  // starting position so they don't conga-line behind each other.
+  state.enemies = [];
+  const ENEMY_BLUEPRINTS = [
+    // Aggressive: direct chase via shortest path
+    { type: "soda",  x: 80,  platform: 0, behavior: "chase" },
+    // Cutter: mirrors player's x to cut off escapes
+    { type: "candy", x: 640, platform: 1, behavior: "cutter" },
+    // Patroller: walks back and forth on the bottom platform
+    { type: "chips", x: 360, platform: 2, behavior: "patrol" },
+    // Extra aggressive enemy for higher levels
+    { type: "soda",  x: 600, platform: 0, behavior: "chase" }
+  ];
+  const count = Math.min(2 + Math.floor((state.level - 1) / 2), 4);
+  for (let i = 0; i < count; i++) {
+    const bp = ENEMY_BLUEPRINTS[i];
+    state.enemies.push({
+      x: bp.x,
+      y: PLATFORM_Y[bp.platform] - ENEMY_H / 2,
+      w: ENEMY_W, h: ENEMY_H,
+      type: bp.type,
+      behavior: bp.behavior,
+      stun: 0,
+      onLadder: null,
+      facing: 1,
+      patrolDir: 1
+    });
+  }
+
+  // Build component stacks
+  state.components = COMPONENT_LAYOUT.map(c => {
+    const segs = [];
+    for (let i = 0; i < c.segments; i++) {
+      segs.push({
+        offset: (i - (c.segments - 1) / 2) * SEGMENT_W, // x offset from center
+        stepped: false,
+        falling: false,
+        landed: false,
+        platform: c.platform,
+        py: platformY(c.platform), // current vertical position
+        targetPlatform: c.platform
+      });
+    }
+    return {
+      type: c.type,
+      x: c.x,
+      stepped: 0,
+      done: false,
+      basePlatform: c.platform,
+      segments: segs
+    };
+  });
+
+  state.fallingPieces = [];
+  state.trayCatches = [];
+  state.pepperCloud = null;
+  state.invuln = 90; // brief invuln on level start
+}
+
+// ---------- INPUT ----------
+window.addEventListener("keydown", e => {
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key)) e.preventDefault();
+  keys[e.key] = true;
+  if (e.key === "p" || e.key === "P") togglePause();
+  if (e.key === " " || e.key === "e" || e.key === "E") shakePepper();
+});
+window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+// Touch controls
+document.querySelectorAll("[data-touch]").forEach(btn => {
+  const action = btn.dataset.touch;
+  const press = (down) => {
+    if (action === "left") keys["ArrowLeft"] = down;
+    if (action === "right") keys["ArrowRight"] = down;
+    if (action === "up") keys["ArrowUp"] = down;
+    if (action === "down") keys["ArrowDown"] = down;
+    if (action === "pepper" && down) shakePepper();
+    if (action === "pause" && down) togglePause();
+  };
+  btn.addEventListener("touchstart", e => { e.preventDefault(); press(true); });
+  btn.addEventListener("touchend", e => { e.preventDefault(); press(false); });
+  btn.addEventListener("mousedown", () => press(true));
+  btn.addEventListener("mouseup", () => press(false));
+  btn.addEventListener("mouseleave", () => press(false));
+});
+
+function togglePause() {
+  if (!state.running) return;
+  state.paused = !state.paused;
+  document.getElementById("pause-overlay").classList.toggle("hidden", !state.paused);
+}
+
+function shakePepper() {
+  if (!state.running || state.paused) return;
+  if (state.pepper <= 0 || state.pepperCloud) return;
+  state.pepper--;
+  updateHUD();
+  const p = state.player;
+  state.pepperCloud = {
+    x: p.x + p.facing * 32,
+    y: p.y,
+    timer: SHAKE_DURATION
+  };
+  // stun any enemy near the cloud
+  for (const en of state.enemies) {
+    if (Math.abs(en.x - state.pepperCloud.x) < 40 && Math.abs(en.y - state.pepperCloud.y) < 40) {
+      en.stun = STUN_FRAMES;
+    }
+  }
+}
+
+// ---------- UPDATE ----------
+function update() {
+  if (!state.running || state.paused) return;
+  if (state.invuln > 0) state.invuln--;
+
+  updatePlayer();
+  updateEnemies();
+  updateComponents();
+  updateFallingPieces();
+  updatePepper();
+
+  // collisions
+  if (state.invuln <= 0) {
+    for (const en of state.enemies) {
+      if (en.stun > 0) continue;
+      if (rectOverlap(state.player, en)) {
+        loseLife();
+        return;
+      }
+    }
+  }
+
+  // win check
+  if (state.components.every(c => c.done)) {
+    levelComplete();
+  }
+
+  if (state.messageTimer > 0) state.messageTimer--;
+}
+
+function rectOverlap(a, b) {
+  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 4 &&
+         Math.abs(a.y - b.y) < (a.h + b.h) / 2 - 4;
+}
+
+function updatePlayer() {
+  const p = state.player;
+  p.walkPhase += 0.18;
+
+  // Vertical movement on ladder
+  const ladder = nearLadder(p);
+  const wantsUp = keys["ArrowUp"];
+  const wantsDown = keys["ArrowDown"];
+
+  if (ladder && (wantsUp || wantsDown || p.onLadder)) {
+    // lock x to ladder center
+    p.x = ladder.x;
+    p.onLadder = ladder;
+    if (wantsUp) {
+      p.y = Math.max(p.y - PLAYER_SPEED, platformY(ladder.top) - PLAYER_H / 2);
+    } else if (wantsDown) {
+      const maxY = platformY(ladder.bottom) - PLAYER_H / 2;
+      p.y = Math.min(p.y + PLAYER_SPEED, maxY);
+    }
+    // leave ladder if at top/bottom and not pressing the relevant direction
+    if (entityFeet(p) <= platformY(ladder.top) + 1 && !wantsDown) p.onLadder = null;
+    if (entityFeet(p) >= platformY(ladder.bottom) - 1 && !wantsUp) p.onLadder = null;
+  } else {
+    p.onLadder = null;
+  }
+
+  // Horizontal movement only when on platform
+  if (!p.onLadder) {
+    const platIdx = isOnPlatform(p);
+    if (platIdx >= 0) {
+      // snap to platform y
+      p.y = platformY(platIdx) - PLAYER_H / 2;
+      if (keys["ArrowLeft"])  { p.x -= PLAYER_SPEED; p.facing = -1; }
+      if (keys["ArrowRight"]) { p.x += PLAYER_SPEED; p.facing = 1; }
+      // step on component segments
+      checkStep(p, platIdx);
+    } else {
+      // fallback: settle to nearest platform if floating
+      let nearest = 0, dist = Infinity;
+      for (let i = 0; i < PLATFORM_Y.length; i++) {
+        const d = Math.abs(entityFeet(p) - PLATFORM_Y[i]);
+        if (d < dist) { dist = d; nearest = i; }
+      }
+      p.y = PLATFORM_Y[nearest] - PLAYER_H / 2;
+    }
+  }
+
+  p.x = clamp(p.x, 14, W - 14);
+}
+
+function checkStep(entity, platIdx) {
+  // find any component on this platform whose segment the entity is over
+  for (const c of state.components) {
+    if (c.done) continue;
+    for (const seg of c.segments) {
+      if (seg.falling || seg.landed) continue;
+      if (seg.platform !== platIdx) continue;
+      const segX = c.x + seg.offset;
+      if (Math.abs(entity.x - segX) < SEGMENT_W / 2 && !seg.stepped) {
+        seg.stepped = true;
+        c.stepped++;
+        // when all segments of a stack are stepped on, the stack falls
+        if (c.stepped >= c.segments.length) {
+          dropComponent(c);
+        }
+      }
+    }
+  }
+}
+
+function dropComponent(c) {
+  // BurgerTime-style cascading drop: all segments fall ONE platform at a time.
+  // After landing, the player must walk across all segments again to push it lower.
+  const nextPlatform = Math.min(c.basePlatform + 1, 3);
+  for (const seg of c.segments) {
+    seg.falling = true;
+    seg.targetPlatform = nextPlatform;
+    seg.stepped = false; // reset so player has to step again on the new platform
+  }
+  state.fallingPieces.push(c);
+  if (nextPlatform === 3) {
+    flashMessage(`${typeLabel(c.type)} dropping to the tray!`);
+  } else {
+    flashMessage(`${typeLabel(c.type)} dropping one level — keep going!`);
+  }
+  state.score += 50;
+  updateHUD();
+}
+
+function updateComponents() {
+  // visual only; segment falling handled in updateFallingPieces
+}
+
+function updateFallingPieces() {
+  // Process pieces that are still falling; pieces that have finished a single drop
+  // become walkable again on their new platform until the player steps on all
+  // segments to send them to the next level.
+  const stillFalling = [];
+  for (const c of state.fallingPieces) {
+    if (c.done) continue;
+    let allLanded = true;
+    for (const seg of c.segments) {
+      if (seg.landed) continue;
+      seg.py += FALL_SPEED;
+      const targetY = platformY(seg.targetPlatform);
+      // check if falling piece hits an enemy
+      for (const en of state.enemies) {
+        if (en.stun > 0) continue;
+        if (Math.abs(en.x - (c.x + seg.offset)) < 24 && Math.abs(en.y - seg.py) < 22) {
+          en.stun = STUN_FRAMES;
+          state.score += 100;
+          flashMessage("Knocked out a junk food!");
+          updateHUD();
+        }
+      }
+      if (seg.py >= targetY) {
+        seg.py = targetY;
+        seg.landed = true;
+        seg.platform = seg.targetPlatform;
+        seg.falling = false;
+      } else {
+        allLanded = false;
+      }
+    }
+    if (allLanded) {
+      // Did this drop land on the tray (platform 3)? If so, the component is done.
+      if (c.segments[0].targetPlatform === 3) {
+        c.done = true;
+        state.trayCatches.push({ type: c.type, x: c.x, time: 60 });
+        state.score += 200;
+        flashMessage(`${typeLabel(c.type)} on the tray ✓`);
+        updateHUD();
+      } else {
+        // Landed on an intermediate platform — reset for re-stepping.
+        // The component's basePlatform is now its current platform.
+        c.basePlatform = c.segments[0].platform;
+        c.stepped = 0;
+        for (const seg of c.segments) {
+          seg.stepped = false;
+          seg.landed = false; // allow checkStep to detect it again
+        }
+      }
+    } else {
+      stillFalling.push(c);
+    }
+  }
+  state.fallingPieces = stillFalling;
+}
+
+function updatePepper() {
+  if (!state.pepperCloud) return;
+  state.pepperCloud.timer--;
+  if (state.pepperCloud.timer <= 0) state.pepperCloud = null;
+}
+
+function updateEnemies() {
+  for (const en of state.enemies) {
+    if (en.stun > 0) { en.stun--; continue; }
+    const p = state.player;
+
+    // Determine player's effective platform — if on a ladder, use the platform
+    // they're closest to so enemies always have a target.
+    let playerPlat;
+    if (state.player.onLadder) {
+      const lad = state.player.onLadder;
+      const feet = entityFeet(state.player);
+      const distTop = Math.abs(feet - platformY(lad.top));
+      const distBot = Math.abs(feet - platformY(lad.bottom));
+      playerPlat = distTop < distBot ? lad.top : lad.bottom;
+    } else {
+      playerPlat = isOnPlatform(state.player);
+      if (playerPlat < 0) playerPlat = 2;
+    }
+
+    // ----- DETERMINE TARGET BY BEHAVIOR -----
+    // Each behavior defines a virtual target (x and platform). The shared AI
+    // below will path toward that target.
+    let targetX, targetPlat;
+    if (en.behavior === "cutter") {
+      // Try to be on the platform BELOW the player to cut off escape routes.
+      // If player is at the bottom, match player's platform but stay on opposite side.
+      targetPlat = Math.min(playerPlat + 1, 2);
+      targetX = p.x;
+      // If the cutter is already on player's platform, just chase
+      if (Math.abs(en.x - p.x) < 80 && !en.onLadder) targetPlat = playerPlat;
+    } else if (en.behavior === "patrol") {
+      // Patrol own platform unless player is on same platform — then chase.
+      const enP = en.onLadder ? -1 : isOnPlatform(en);
+      if (enP === playerPlat) {
+        // chase player on this platform
+        targetPlat = playerPlat;
+        targetX = p.x;
+      } else {
+        // patrol back and forth on current platform
+        targetPlat = enP >= 0 ? enP : 2;
+        // bounce at edges
+        if (en.x <= 30) en.patrolDir = 1;
+        else if (en.x >= W - 30) en.patrolDir = -1;
+        targetX = en.x + en.patrolDir * 100; // a moving target ahead of itself
+        // Occasionally drift toward player's platform to mix things up
+        if (Math.random() < 0.003) targetPlat = playerPlat;
+      }
+    } else {
+      // "chase" — direct pursuit
+      targetPlat = playerPlat;
+      targetX = p.x;
+    }
+
+    // ----- ON LADDER -----
+    if (en.onLadder) {
+      const lad = en.onLadder;
+      // Direction: toward target platform
+      const goingDown = lad.bottom <= targetPlat;
+      const targetEnd = goingDown ? lad.bottom : lad.top;
+      const targetY = platformY(targetEnd);
+
+      if (entityFeet(en) < targetY) {
+        en.y += ENEMY_SPEED;  // descending
+      } else if (entityFeet(en) > targetY) {
+        en.y -= ENEMY_SPEED;  // ascending
+      }
+
+      // Snap and exit when we've reached our target end of the ladder
+      if (goingDown && entityFeet(en) >= targetY - 0.5) {
+        en.y = targetY - ENEMY_H / 2;
+        en.onLadder = null;
+      } else if (!goingDown && entityFeet(en) <= targetY + 0.5) {
+        en.y = targetY - ENEMY_H / 2;
+        en.onLadder = null;
+      }
+      en.x = clamp(en.x, 14, W - 14);
+      continue;
+    }
+
+    // ----- ON PLATFORM -----
+    const enPlat = isOnPlatform(en);
+    if (enPlat < 0) {
+      // shouldn't normally happen, snap to nearest platform
+      let nearest = 0, dist = Infinity;
+      for (let i = 0; i < PLATFORM_Y.length; i++) {
+        const d = Math.abs(entityFeet(en) - PLATFORM_Y[i]);
+        if (d < dist) { dist = d; nearest = i; }
+      }
+      en.y = PLATFORM_Y[nearest] - ENEMY_H / 2;
+      en.x = clamp(en.x, 14, W - 14);
+      continue;
+    }
+
+    en.y = PLATFORM_Y[enPlat] - ENEMY_H / 2;
+
+    if (targetPlat !== enPlat) {
+      // Find a ladder on this platform that goes toward the target
+      const goingDown = targetPlat > enPlat;
+      const candidates = LADDERS.filter(l =>
+        goingDown ? l.top === enPlat : l.bottom === enPlat
+      );
+      let best = null, bd = Infinity;
+      for (const l of candidates) {
+        const d = Math.abs(l.x - en.x);
+        if (d < bd) { bd = d; best = l; }
+      }
+      if (best) {
+        if (Math.abs(en.x - best.x) <= ENEMY_SPEED + 0.5) {
+          en.x = best.x;
+          en.onLadder = best;
+          const entryY = goingDown ? platformY(best.top) : platformY(best.bottom);
+          en.y = entryY - ENEMY_H / 2;
+        } else {
+          en.x += en.x < best.x ? ENEMY_SPEED : -ENEMY_SPEED;
+          en.facing = en.x < best.x ? 1 : -1;
+        }
+        en.x = clamp(en.x, 14, W - 14);
+        continue;
+      }
+      // No ladder candidates from this platform — drop through to horizontal movement
+    }
+
+    // Same platform as target — move horizontally toward targetX
+    if (en.x < targetX - 1) {
+      en.x += ENEMY_SPEED;
+      en.facing = 1;
+    } else if (en.x > targetX + 1) {
+      en.x -= ENEMY_SPEED;
+      en.facing = -1;
+    }
+
+    // Opportunistic: if player is on a ladder we can access from this platform, jump on
+    if (state.player.onLadder) {
+      const lad = state.player.onLadder;
+      if ((lad.top === enPlat || lad.bottom === enPlat) && Math.abs(en.x - lad.x) < 8) {
+        en.x = lad.x;
+        en.onLadder = lad;
+        en.y = (lad.top === enPlat ? platformY(lad.top) : platformY(lad.bottom)) - ENEMY_H / 2;
+      }
+    }
+
+    en.x = clamp(en.x, 14, W - 14);
+  }
+}
+
+function typeLabel(key) {
+  return COMPONENT_TYPES.find(t => t.key === key).label;
+}
+
+function flashMessage(text) {
+  state.message = text;
+  state.messageTimer = 90;
+}
+
+function loseLife() {
+  state.lives--;
+  state.invuln = 120;
+  updateHUD();
+  if (state.lives <= 0) {
+    gameOver();
+    return;
+  }
+  // reset positions
+  state.player.x = 60;
+  state.player.y = PLATFORM_Y[2] - PLAYER_H / 2;
+  state.player.onLadder = null;
+  for (let i = 0; i < state.enemies.length; i++) {
+    const en = state.enemies[i];
+    en.x = 100 + i * 180;
+    en.y = PLATFORM_Y[0] - ENEMY_H / 2;
+    en.onLadder = null;
+    en.stun = 60;
+  }
+  flashMessage("Try again!");
+}
+
+function gameOver() {
+  state.running = false;
+  const completed = state.components.filter(c => c.done).length;
+  document.getElementById("lose-msg").textContent =
+    `You served ${completed} of 5 components. ${completed >= 3 ? "Almost reimbursable — students must select at least 3 with a fruit/veg." : "A reimbursable lunch needs all 5 offered components on the tray."}`;
+  document.getElementById("lose-overlay").classList.remove("hidden");
+}
+
+function levelComplete() {
+  state.running = false;
+  state.score += 500;
+  state.score += state.lives * 100;
+  state.score += state.pepper * 25;
+  updateHUD();
+  document.getElementById("win-title").textContent = "Reimbursable!";
+  document.getElementById("win-sub").textContent = `Level ${state.level} cleared`;
+  document.getElementById("win-msg").textContent =
+    `Meal pattern met. +${500 + state.lives * 100 + state.pepper * 25} bonus points (lives & pepper remaining).`;
+  document.getElementById("win-overlay").classList.remove("hidden");
+}
+
+function updateHUD() {
+  document.getElementById("hud-score").textContent = state.score;
+  document.getElementById("hud-lives").textContent = state.lives;
+  document.getElementById("hud-pepper").textContent = state.pepper;
+  document.getElementById("hud-level").textContent = state.level;
+}
+
+// ---------- DRAW ----------
+function draw() {
+  // BG
+  ctx.fillStyle = "#fafaf7";
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle dot grid for a "kitchen tile" feel
+  ctx.fillStyle = "rgba(45, 94, 62, 0.05)";
+  for (let x = 20; x < W; x += 40) {
+    for (let y = 20; y < H; y += 40) {
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
+
+  // Ladders (draw under platforms)
+  ctx.strokeStyle = "#3a7a51";
+  ctx.lineWidth = 2;
+  for (const lad of LADDERS) {
+    const topY = platformY(lad.top);
+    const botY = platformY(lad.bottom);
+    // rails
+    ctx.beginPath();
+    ctx.moveTo(lad.x - LADDER_W/2, topY);
+    ctx.lineTo(lad.x - LADDER_W/2, botY);
+    ctx.moveTo(lad.x + LADDER_W/2, topY);
+    ctx.lineTo(lad.x + LADDER_W/2, botY);
+    ctx.stroke();
+    // rungs
+    const rungs = Math.floor((botY - topY) / 14);
+    for (let r = 1; r <= rungs; r++) {
+      const ry = topY + r * 14;
+      ctx.beginPath();
+      ctx.moveTo(lad.x - LADDER_W/2, ry);
+      ctx.lineTo(lad.x + LADDER_W/2, ry);
+      ctx.stroke();
+    }
+  }
+
+  // Platforms
+  for (const py of PLATFORM_Y) {
+    ctx.fillStyle = "#244c33";
+    ctx.fillRect(0, py, W, PLAT_THICK);
+    ctx.fillStyle = "#3a7a51";
+    ctx.fillRect(0, py, W, 2);
+  }
+
+  // Tray (catch zone)
+  const trayX = 80, trayW = W - 160;
+  ctx.fillStyle = "#9ec9a3";
+  ctx.fillRect(trayX, TRAY_Y, trayW, 4);
+  ctx.fillStyle = "#c9e3cb";
+  ctx.fillRect(trayX, TRAY_Y + 4, trayW, 26);
+  ctx.strokeStyle = "#244c33";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(trayX, TRAY_Y, trayW, 30);
+  // tray label
+  ctx.fillStyle = "#244c33";
+  ctx.font = "bold 10px 'JetBrains Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("LUNCH TRAY", W / 2, TRAY_Y + 22);
+
+  // Components on platforms (un-dropped) and falling segments
+  for (const c of state.components) {
+    drawComponent(c);
+  }
+
+  // Pepper cloud
+  if (state.pepperCloud) {
+    const cl = state.pepperCloud;
+    ctx.globalAlpha = cl.timer / SHAKE_DURATION;
+    ctx.fillStyle = "#b8442e";
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(cl.x + Math.cos(a) * 14, cl.y + Math.sin(a) * 14, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Enemies
+  for (const en of state.enemies) drawEnemy(en);
+
+  // Player (only if initialized — before Start is clicked, state.player is null)
+  if (state.player && (state.invuln <= 0 || state.invuln % 8 < 4)) {
+    drawPlayer(state.player);
+  }
+
+  // Tray catches (component icons that have landed)
+  drawTrayCatches();
+
+  // Flash message
+  if (state.messageTimer > 0 && state.message) {
+    ctx.globalAlpha = Math.min(1, state.messageTimer / 30);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillRect(W/2 - 160, 40, 320, 28);
+    ctx.strokeStyle = "#2d5e3e";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(W/2 - 160, 40, 320, 28);
+    ctx.fillStyle = "#2d5e3e";
+    ctx.font = "bold 12px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(state.message, W/2, 58);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawComponent(c) {
+  const def = COMPONENT_TYPES.find(t => t.key === c.type);
+  for (const seg of c.segments) {
+    if (seg.landed && c.done) continue; // skip only when fully on tray
+    const sx = c.x + seg.offset;
+    // Draw the sprite sitting on top of its platform (or mid-fall)
+    const baseY = seg.falling ? seg.py : (seg.landed ? platformY(seg.platform) : platformY(seg.platform));
+    drawFoodSprite(sx, baseY, c.type, seg.stepped && !seg.falling);
+  }
+  // label above stack only when not falling and not done, and only on the basePlatform
+  if (!c.done && !c.segments.some(s => s.falling)) {
+    const py = platformY(c.basePlatform) - 32;
+    ctx.fillStyle = "#2a2f2c";
+    ctx.font = "bold 9px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(def.label.toUpperCase(), c.x, py);
+  }
+}
+
+// Draw one food segment sprite anchored to a platform line at platformY
+function drawFoodSprite(x, platformLineY, type, stepped) {
+  // baseY is the platform line; sprites sit on top of it
+  const y = platformLineY - 1; // baseline (bottom of sprite)
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 1, 12, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (type === "MMA") {
+    // Chicken nugget — golden brown lumpy oval
+    ctx.fillStyle = stepped ? "#b8893a" : "#d9a548";
+    ctx.beginPath();
+    ctx.ellipse(x, y - 7, 11, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#7a4a1a";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // breading bumps
+    ctx.fillStyle = "#7a4a1a";
+    ctx.fillRect(x - 5, y - 9, 1, 1);
+    ctx.fillRect(x + 2, y - 6, 1, 1);
+    ctx.fillRect(x - 1, y - 4, 1, 1);
+    ctx.fillRect(x + 4, y - 9, 1, 1);
+  } else if (type === "GRAIN") {
+    // Dinner roll — domed brown bun with shine
+    ctx.fillStyle = stepped ? "#a87742" : "#c89762";
+    ctx.beginPath();
+    ctx.arc(x, y - 6, 10, Math.PI, 0);
+    ctx.lineTo(x + 10, y - 1);
+    ctx.lineTo(x - 10, y - 1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#6e4a22";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // shine
+    ctx.fillStyle = "rgba(255,235,200,0.5)";
+    ctx.beginPath();
+    ctx.ellipse(x - 3, y - 10, 4, 2, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // bottom line
+    ctx.strokeStyle = "#6e4a22";
+    ctx.beginPath();
+    ctx.moveTo(x - 10, y - 1);
+    ctx.lineTo(x + 10, y - 1);
+    ctx.stroke();
+  } else if (type === "FRUIT") {
+    // Banana — yellow crescent with brown tips
+    ctx.fillStyle = stepped ? "#d9c050" : "#f5dc4a";
+    ctx.beginPath();
+    ctx.moveTo(x - 11, y - 3);
+    ctx.quadraticCurveTo(x - 8, y - 14, x + 6, y - 13);
+    ctx.quadraticCurveTo(x + 12, y - 12, x + 11, y - 6);
+    ctx.quadraticCurveTo(x + 8, y - 2, x - 4, y - 1);
+    ctx.quadraticCurveTo(x - 11, y - 1, x - 11, y - 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#a98a1a";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // brown tips (stem and bottom)
+    ctx.fillStyle = "#5a3a10";
+    ctx.fillRect(x + 9, y - 14, 3, 3);
+    ctx.fillRect(x - 12, y - 4, 2, 2);
+    // ridge line
+    ctx.strokeStyle = "rgba(0,0,0,0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 8, y - 6);
+    ctx.quadraticCurveTo(x, y - 11, x + 8, y - 10);
+    ctx.stroke();
+  } else if (type === "VEG") {
+    // Broccoli floret — green bumpy crown on stem
+    // stem
+    ctx.fillStyle = stepped ? "#6e8a3e" : "#a3c46a";
+    ctx.fillRect(x - 3, y - 6, 6, 6);
+    ctx.strokeStyle = "#3a5a1e";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 3, y - 6, 6, 6);
+    // crown — multiple little circles
+    ctx.fillStyle = stepped ? "#3e6a30" : "#4a8a3e";
+    const bumps = [
+      [x - 7, y - 9, 5], [x - 2, y - 12, 5], [x + 3, y - 11, 5],
+      [x + 7, y - 8, 4], [x - 4, y - 7, 4], [x + 4, y - 6, 4]
+    ];
+    for (const [bx, by, br] of bumps) {
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "#1f3a18";
+    ctx.lineWidth = 1.2;
+    for (const [bx, by, br] of bumps) {
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (type === "MILK") {
+    // Milk carton — white box with blue band, "MILK" label
+    const boxW = 16, boxH = 18;
+    // body
+    ctx.fillStyle = stepped ? "#dde0e5" : "#fafafa";
+    ctx.fillRect(x - boxW/2, y - boxH, boxW, boxH);
+    ctx.strokeStyle = "#2a4a6a";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - boxW/2, y - boxH, boxW, boxH);
+    // peaked top
+    ctx.fillStyle = stepped ? "#dde0e5" : "#fafafa";
+    ctx.beginPath();
+    ctx.moveTo(x - boxW/2, y - boxH);
+    ctx.lineTo(x, y - boxH - 5);
+    ctx.lineTo(x + boxW/2, y - boxH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // blue band
+    ctx.fillStyle = "#3a6aa3";
+    ctx.fillRect(x - boxW/2, y - boxH + 4, boxW, 4);
+    // MILK label
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 5px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("MILK", x, y - boxH + 7.5);
+  }
+
+  // stepped indicator — a small "✓" so the player knows they pushed it
+  if (stepped) {
+    ctx.fillStyle = "#2d5e3e";
+    ctx.font = "bold 10px serif";
+    ctx.textAlign = "center";
+    ctx.fillText("✓", x, y - 22);
+  }
+}
+
+function drawTrayCatches() {
+  // Render landed components as food sprites sitting on the tray.
+  const slotW = (W - 160) / 5;
+  for (let i = 0; i < state.trayCatches.length; i++) {
+    const cat = state.trayCatches[i];
+    const ix = 80 + slotW * i + slotW / 2;
+    const iy = TRAY_Y + 20;
+    drawFoodSprite(ix, iy + 4, cat.type, false);
+  }
+}
+
+function drawPlayer(p) {
+  const x = p.x, y = p.y;
+
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.1)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 16, 11, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // legs (walk anim)
+  const legPhase = Math.sin(p.walkPhase) * 2;
+  // shoes
+  ctx.fillStyle = "#2a2f2c";
+  ctx.fillRect(x - 7, y + 10, 5, 7);
+  ctx.fillRect(x + 2, y + 10, 5, 7);
+  // pants visible at top of shoes (white)
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x - 7, y + 9, 5, 2);
+  ctx.fillRect(x + 2, y + 9, 5, 2);
+
+  // body / chef coat (white)
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x - 9, y - 6, 18, 16);
+  ctx.strokeStyle = "#2a2f2c";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x - 9, y - 6, 18, 16);
+
+  // green apron — slight V at top
+  ctx.fillStyle = "#2d5e3e";
+  ctx.beginPath();
+  ctx.moveTo(x - 7, y - 2);
+  ctx.lineTo(x - 4, y - 5);
+  ctx.lineTo(x + 4, y - 5);
+  ctx.lineTo(x + 7, y - 2);
+  ctx.lineTo(x + 7, y + 10);
+  ctx.lineTo(x - 7, y + 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#1a3a25";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // apron pocket
+  ctx.strokeRect(x - 4, y + 2, 8, 5);
+
+  // arms (sides)
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x - 11, y - 4, 3, 10);
+  ctx.fillRect(x + 8, y - 4, 3, 10);
+  ctx.strokeStyle = "#2a2f2c";
+  ctx.strokeRect(x - 11, y - 4, 3, 10);
+  ctx.strokeRect(x + 8, y - 4, 3, 10);
+
+  // hair — brown, shoulder-length, visible behind/beside head
+  ctx.fillStyle = "#5a3a20";
+  // back of hair (frames the head)
+  ctx.fillRect(x - 8, y - 14, 16, 14);
+  // hair tucked behind ears, hanging to shoulders
+  ctx.fillRect(x - 9, y - 8, 3, 7);
+  ctx.fillRect(x + 6, y - 8, 3, 7);
+
+  // head/face (skin tone)
+  ctx.fillStyle = "#f0d6b8";
+  ctx.fillRect(x - 6, y - 15, 12, 10);
+  ctx.strokeStyle = "#2a2f2c";
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(x - 6, y - 15, 12, 10);
+
+  // hair bangs (short, across forehead)
+  ctx.fillStyle = "#5a3a20";
+  ctx.fillRect(x - 6, y - 15, 12, 3);
+
+  // chef hat — white, fluffy, with band
+  // band
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(x - 7, y - 19, 14, 4);
+  ctx.strokeRect(x - 7, y - 19, 14, 4);
+  // poof
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(x - 5, y - 22, 4.5, 0, Math.PI * 2);
+  ctx.arc(x, y - 24, 5, 0, Math.PI * 2);
+  ctx.arc(x + 5, y - 22, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // eyes with lashes
+  ctx.fillStyle = "#2a2f2c";
+  if (p.facing > 0) {
+    // right-facing: eyes shifted right
+    ctx.fillRect(x, y - 11, 2, 2);
+    ctx.fillRect(x + 4, y - 11, 2, 2);
+    // lashes (tiny lines above eyes)
+    ctx.fillRect(x, y - 12, 2, 1);
+    ctx.fillRect(x + 4, y - 12, 2, 1);
+  } else {
+    ctx.fillRect(x - 5, y - 11, 2, 2);
+    ctx.fillRect(x - 1, y - 11, 2, 2);
+    ctx.fillRect(x - 5, y - 12, 2, 1);
+    ctx.fillRect(x - 1, y - 12, 2, 1);
+  }
+
+  // small smile
+  ctx.strokeStyle = "#a8504a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  if (p.facing > 0) {
+    ctx.moveTo(x + 1, y - 7);
+    ctx.lineTo(x + 4, y - 7);
+  } else {
+    ctx.moveTo(x - 4, y - 7);
+    ctx.lineTo(x - 1, y - 7);
+  }
+  ctx.stroke();
+}
+
+function drawEnemy(en) {
+  const x = en.x, y = en.y;
+  ctx.save();
+  if (en.stun > 0) ctx.globalAlpha = 0.55;
+
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 14, 11, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (en.type === "soda") {
+    // ===== SODA BOTTLE =====
+    // Cap (red, with ridges)
+    ctx.fillStyle = "#a8362e";
+    ctx.fillRect(x - 6, y - 16, 12, 4);
+    ctx.strokeStyle = "#2a2f2c";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 6, y - 16, 12, 4);
+    // cap ridges
+    ctx.fillStyle = "#7a261e";
+    for (let i = -5; i <= 5; i += 2) ctx.fillRect(x + i, y - 15, 1, 2);
+
+    // Neck (brown bottle)
+    ctx.fillStyle = "#5a3a1e";
+    ctx.fillRect(x - 4, y - 12, 8, 4);
+    ctx.strokeRect(x - 4, y - 12, 8, 4);
+
+    // Bottle body — wider, brown
+    ctx.fillStyle = "#7a4a28";
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y - 8);
+    ctx.lineTo(x - 10, y - 4);
+    ctx.lineTo(x - 10, y + 10);
+    ctx.lineTo(x + 10, y + 10);
+    ctx.lineTo(x + 10, y - 4);
+    ctx.lineTo(x + 4, y - 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#2a2f2c";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // White label across middle
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(x - 9, y - 1, 18, 8);
+    ctx.strokeStyle = "#2a2f2c";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - 9, y - 1, 18, 8);
+    // label text
+    ctx.fillStyle = "#a8362e";
+    ctx.font = "bold 7px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("SODA", x, y + 3);
+    ctx.textBaseline = "alphabetic";
+
+    // shine highlight
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(x - 8, y - 3, 2, 12);
+
+    // little legs
+    ctx.fillStyle = "#2a2f2c";
+    ctx.fillRect(x - 6, y + 10, 3, 3);
+    ctx.fillRect(x + 3, y + 10, 3, 3);
+
+  } else if (en.type === "candy") {
+    // ===== CANDY BAR =====
+    // wrapper body — bright purple/red so it pops
+    ctx.fillStyle = "#a83a6a";
+    ctx.fillRect(x - 13, y - 9, 26, 18);
+    ctx.strokeStyle = "#2a2f2c";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 13, y - 9, 26, 18);
+
+    // diagonal stripe accent
+    ctx.fillStyle = "#d99744";
+    ctx.fillRect(x - 13, y - 4, 26, 5);
+
+    // wrapper twists at ends
+    ctx.fillStyle = "#a83a6a";
+    ctx.beginPath();
+    ctx.moveTo(x - 13, y - 9);
+    ctx.lineTo(x - 17, y - 12);
+    ctx.lineTo(x - 17, y + 12);
+    ctx.lineTo(x - 13, y + 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 13, y - 9);
+    ctx.lineTo(x + 17, y - 12);
+    ctx.lineTo(x + 17, y + 12);
+    ctx.lineTo(x + 13, y + 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // twist lines
+    ctx.beginPath();
+    ctx.moveTo(x - 13, y - 9); ctx.lineTo(x - 17, y + 12);
+    ctx.moveTo(x - 13, y + 9); ctx.lineTo(x - 17, y - 12);
+    ctx.moveTo(x + 13, y - 9); ctx.lineTo(x + 17, y + 12);
+    ctx.moveTo(x + 13, y + 9); ctx.lineTo(x + 17, y - 12);
+    ctx.stroke();
+
+    // CANDY label
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 7px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CANDY", x, y - 6);
+    ctx.textBaseline = "alphabetic";
+
+    // legs
+    ctx.fillStyle = "#2a2f2c";
+    ctx.fillRect(x - 5, y + 9, 3, 4);
+    ctx.fillRect(x + 2, y + 9, 3, 4);
+
+    // eyes (on the orange stripe)
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(x - 6, y - 2, 3, 3);
+    ctx.fillRect(x + 3, y - 2, 3, 3);
+    ctx.fillStyle = "#2a2f2c";
+    ctx.fillRect(x - 5, y - 1, 1, 1);
+    ctx.fillRect(x + 4, y - 1, 1, 1);
+
+  } else { // CHIPS — bag with chip peeking out
+    // ===== CHIP BAG =====
+    // bag body — bright orange/red, recognizable
+    ctx.fillStyle = "#e85a2a";
+    ctx.fillRect(x - 10, y - 13, 20, 26);
+    ctx.strokeStyle = "#2a2f2c";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 10, y - 13, 20, 26);
+
+    // crinkled top edge (zig-zag)
+    ctx.fillStyle = "#e85a2a";
+    ctx.beginPath();
+    ctx.moveTo(x - 10, y - 13);
+    for (let i = -10; i <= 10; i += 4) {
+      ctx.lineTo(x + i + 2, y - 16);
+      ctx.lineTo(x + i + 4, y - 13);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // CHIPS label band (yellow)
+    ctx.fillStyle = "#f5d04a";
+    ctx.fillRect(x - 10, y - 4, 20, 9);
+    ctx.strokeStyle = "#2a2f2c";
+    ctx.strokeRect(x - 10, y - 4, 20, 9);
+    ctx.fillStyle = "#a8362e";
+    ctx.font = "bold 8px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CHIPS", x, y + 0.5);
+    ctx.textBaseline = "alphabetic";
+
+    // chip peeking out the top
+    ctx.fillStyle = "#f5c878";
+    ctx.beginPath();
+    ctx.ellipse(x + 4, y - 14, 3, 2, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#a98a4a";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // little legs
+    ctx.fillStyle = "#2a2f2c";
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(x - 6, y + 13, 3, 4);
+    ctx.fillRect(x + 3, y + 13, 3, 4);
+
+    // eyes (above label)
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(x - 5, y - 11, 3, 3);
+    ctx.fillRect(x + 2, y - 11, 3, 3);
+    ctx.fillStyle = "#2a2f2c";
+    ctx.fillRect(x - 4, y - 10, 1, 1);
+    ctx.fillRect(x + 3, y - 10, 1, 1);
+  }
+
+  if (en.stun > 0) {
+    // dizzy stars
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#c47820";
+    ctx.font = "bold 12px serif";
+    ctx.textAlign = "center";
+    const t = Date.now() / 100;
+    ctx.fillText("✦", x - 6 + Math.cos(t) * 4, y - 20);
+    ctx.fillText("✧", x + 6 + Math.cos(t + 1) * 4, y - 18);
+  }
+  ctx.restore();
+}
+
+// ---------- LOOP ----------
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ---------- BOOT ----------
+function startGame() {
+  state.score = 0;
+  state.lives = 3;
+  state.pepper = 5;
+  state.level = 1;
+  initLevel();
+  updateHUD();
+  state.running = true;
+  state.paused = false;
+  document.getElementById("start-overlay").classList.add("hidden");
+  document.getElementById("win-overlay").classList.add("hidden");
+  document.getElementById("lose-overlay").classList.add("hidden");
+}
+
+function nextLevel() {
+  state.level++;
+  state.pepper = Math.min(state.pepper + 2, 9);
+  initLevel();
+  updateHUD();
+  state.running = true;
+  document.getElementById("win-overlay").classList.add("hidden");
+}
+
+document.getElementById("start-btn").addEventListener("click", startGame);
+document.getElementById("retry-btn").addEventListener("click", startGame);
+document.getElementById("next-btn").addEventListener("click", nextLevel);
+
+// header date
+const today = new Date();
+document.getElementById("date-line").textContent =
+  today.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+loop();
+</script>
+
+</body>
+</html>
